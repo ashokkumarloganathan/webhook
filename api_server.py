@@ -4,8 +4,12 @@ import os
  
 app = Flask(__name__)
  
-# Render gives DATABASE_URL as env variable when you link a Postgres instance
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL").replace("postgres://", "postgresql://")
+# Handle DATABASE_URL from Render (safe replacement for postgres:// → postgresql://)
+db_url = os.getenv("DATABASE_URL", "")
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+ 
+app.config["SQLALCHEMY_DATABASE_URI"] = db_url or "sqlite:///local.db"  # fallback for local testing
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
  
 db = SQLAlchemy(app)
@@ -32,5 +36,10 @@ def fabric_connector():
 def home():
     return "FortiAnalyzer API Server is running ✅", 200
  
+# Create tables automatically on startup
+with app.app_context():
+    db.create_all()
+ 
 if __name__ == "__main__":
+    # For local testing only; Render will use Gunicorn
 app.run(host="0.0.0.0", port=5000)
